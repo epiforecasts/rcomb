@@ -1,0 +1,78 @@
+---
+title: "Aggregating r values with metafor"
+---
+
+# Initialise
+
+```{r preamble}
+library("dplyr")
+library("metafor")
+set.seed(329012409)
+```
+
+# Generate random estimates
+
+```{r}
+true_R <- 0.6
+nmodels <- 4
+
+means <- rnorm(nmodels, true_R, 0.2)
+stds <- rgamma(nmodels, 1, 5)
+```
+
+```{r}
+means
+stds
+```
+
+# Produce a meta-estimate
+
+```{r}
+r <- rma(yi=means, sei=stds, weighted=FALSE, level=90)
+r
+forest(r)
+```
+
+# Experiment 1: shift an estimate out of the range of the others
+
+```{r}
+## increase each estimate by 1, in turn
+exp_1 <- list()
+for (i in 1:nmodels) {
+  test_means <- means
+  test_stds <- stds
+  test_means[i] <- test_means[i] + 1
+  r <- rma(yi = test_means, sei = test_stds, weighted = FALSE, level = 90)
+  exp_1[[i]] <- tibble(mean = r$b, lower = r$ci.lb, upper = r$ci.ub)
+}
+
+exp_1 <- bind_rows(exp_1)
+
+## each row corresponds to one estimate having been increased by one
+exp_1
+```
+
+Conclusions: 
+
+1. mean estimate unaffected by which estimate is moved up; 
+2. resulting uncertainty is greater if a more certain estimate is moved;
+
+# Experiment 2: multiply one estimate
+
+```{r}
+## duplicate each estimate, in turn
+nmult <- 1
+exp_2 <- list()
+for (i in 1:nmodels) {
+  test_means <- c(means, rep(means[i], nmult))
+  test_stds <- c(stds, rep(stds[i], nmult))
+  r <- rma(yi = test_means, sei = test_stds, weighted = FALSE, level = 90)
+  exp_2[[i]] <- tibble(mean = r$b, lower = r$ci.lb, upper = r$ci.ub)
+}
+
+exp_2 <- bind_rows(exp_2)
+
+exp_2
+```
+
+Conclusions: this affects the estimate
